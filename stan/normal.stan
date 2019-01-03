@@ -20,10 +20,11 @@ transformed parameters {
 
 model {
   matrix[N, M] coefs = B * X;
+  real sc = mean(sigma) / sqrt(N*K);
   eta ~ cauchy(0, 1);
   for(i in 1:N) {
     zeta[i] ~ cauchy(0, 1);
-    B[i] ~ normal(0, eta * zeta[i] * sigma[i] / sqrt(K*N));
+    B[i] ~ normal(0, eta * zeta[i] * sc);
     Y[i] ~ normal(b0[i] + coefs[i], sigma[i]);
   }
 }

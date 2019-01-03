@@ -8,7 +8,7 @@ data {
 }
 
 transformed data {
-  row_vector[M] ls = log(s); // log library sizes
+  row_vector[M] ls = log(s);              // log library sizes
 }
 
 parameters {
