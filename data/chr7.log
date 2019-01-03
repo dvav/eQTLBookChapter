@@ -1,0 +1,23 @@
+
+VCFtools - 0.1.15
+(C) Adam Auton and Anthony Marcketta 2009
+
+Parameters as interpreted:
+	--gzvcf [stdin]
+	--chr 7
+	--to-bp 200000
+	--maf 0.05
+	--max-alleles 2
+	--max-maf 0.95
+	--min-alleles 2
+	--012
+	--out chr7
+	--remove-filtered-all
+	--remove-indels
+	--from-bp 100000
+
+Using zlib version: 1.2.11
+After filtering, kept 2504 out of 2504 Individuals
+Writing 012 matrix files ... Done.
+After filtering, kept 496 out of a possible 4716715 Sites
+Run Time = 224.00 seconds
