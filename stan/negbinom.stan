@@ -2,34 +2,36 @@ data {
   int<lower=0> N;                     // number of genes
   int<lower=0> M;                     // number of samples
   int<lower=0> K;                     // number of variants
-  int Z[N, M];                        // matrix of read counts
-  matrix[K, M] X;                     // matrix of genotypes
-  row_vector<lower=0>[M] s;           // vector of library sizes
+  matrix[M, K] X;                     // matrix of genotypes
+  int<lower=0> Z[N, M];               // array of read counts
+  vector<lower=0>[M] c;               // vector of normalisation factors
+  vector<lower=0>[M] s;               // vector of library sizes
 }
 
 transformed data {
-  row_vector[M] ls = log(s);              // log library sizes
+  vector[M] lc = log(c);              // log normalisation factors
+  vector[M] ls = log(s);              // log library sizes
 }
 
 parameters {
   vector[N] b0;                      // baseline gene expression (log-scale)
-  matrix[N, K] B;                    // matrix of regression coefficients
   vector[N] lphi;                    // log-dispersion
   real<lower=0> eta;                 // global scale parameter
-  matrix<lower=0>[N, K] zeta;        // local scale parameter
+  vector<lower=0>[K] zeta[N];        // local scale parameters
+  vector[K] B[N];                    // regression coefficients
 }
 
 transformed parameters {
-  vector<lower=0>[N] phi = exp(lphi);        // dispersion
-  vector<lower=0>[N] alpha = 1.0 ./ phi;     // inverse-dispersion
+  vector<lower=0>[N] phi = exp(lphi);         // dispersion
+  vector<lower=0>[N] alpha = 1.0 ./ phi;      // inverse-dispersion
 }
 
 model {
-  matrix[N, M] coefs = B * X;
+  real sc = 1.0 / sqrt(N*K);
   eta ~ cauchy(0, 1);
   for(i in 1:N) {
     zeta[i] ~ cauchy(0, 1);
-    B[i] ~ normal(0, eta * zeta[i]);
-    Z[i] ~ neg_binomial_2_log(ls + b0[i] + coefs[i], alpha[i]);
+    B[i] ~ normal(0, eta * zeta[i] * sc);
+    Z[i] ~ neg_binomial_2_log(ls + lc + b0[i] + X * B[i], alpha[i]);
   }
 }

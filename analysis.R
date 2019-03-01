@@ -1,4 +1,3 @@
-library(tidyverse)
 source('R/utils.R')
 source('R/viz.R')
 
@@ -20,12 +19,12 @@ cpp_object_initializer = rstan::cpp_object_initializer
 set.seed(42)
 
 fitted_models =
-  plyr::ldply(lst(500, 1500, 2500), function(N) {
+  plyr::ldply(lst(312, 625, 1250, 2500), function(N) {
     sim = simulate_data(obs_counts_stats, obs_geno, nsamples = N)
     plyr::ldply(lst(normal, poissonln, negbinom), function(mdl) {
       fit_model(sim, mdl)
     }, .parallel = T, .id = 'MODEL')
   }, .progress = 'text', .id = 'NSAMPLES') %>%
-  as_data_frame()
+  as_tibble()
 
-plot_fitted_models(fitted_models)
+plot_fitted_models(fitted_models, thr = 0.125)

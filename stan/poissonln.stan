@@ -2,22 +2,24 @@ data {
   int<lower=0> N;                     // number of genes
   int<lower=0> M;                     // number of samples
   int<lower=0> K;                     // number of variants
-  int Z[N, M];                        // matrix of read counts
-  matrix[N, M] Y;                     // matrix of latent variables
-  matrix[K, M] X;                     // matrix of genotypes
-  row_vector<lower=0>[M] c;           // vector of normalisation factors
+  matrix[M, K] X;                     // matrix of genotypes
+  int<lower=0> Z[N, M];               // array of read counts
+  vector<lower=0>[M] c;               // vector of normalisation factors
+  vector<lower=0>[M] s;               // vector of library sizes
 }
 
 transformed data {
-  row_vector[M] lc = log(c);          // log normalisation factors
+  vector[M] lc = log(c);              // log normalisation factors
+  vector[M] ls = log(s);              // log library sizes
 }
 
 parameters {
   vector[N] b0;                       // baseline gene expression
-  matrix[N, K] B;                     // matrix of regression coefficients
   vector[N] ls2;                      // log-variance of gene expression
   real<lower=0> eta;                  // global scale parameter
-  matrix<lower=0>[N, K] zeta;         // local scale parameter
+  vector<lower=0>[K] zeta[N];         // local scale parameters
+  vector[K] B[N];                     // regression coefficients
+  vector[M] Y[N];                     // latent variables
 }
 
 transformed parameters {
@@ -25,13 +27,12 @@ transformed parameters {
 }
 
 model {
-  matrix[N, M] coefs = B * X;
   real sc = mean(sigma) / sqrt(N*K);
   eta ~ cauchy(0, 1);
   for(i in 1:N) {
     zeta[i] ~ cauchy(0, 1);
     B[i] ~ normal(0, eta * zeta[i] * sc);
-    Y[i] ~ normal(b0[i] + coefs[i], sigma[i]);
-    Z[i] ~ poisson_log(lc + Y[i]);
+    Y[i] ~ normal(b0[i] + X * B[i], sigma[i]);
+    Z[i] ~ poisson_log(lc + ls + Y[i]);
   }
 }

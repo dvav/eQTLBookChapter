@@ -19,13 +19,12 @@ load_genotypes = function() {
     file.path('data', 'chr7.012') %>%
     read_tsv(na = '-1', col_names = c('SAMPLE', pos)) %>%
     select(-1) %>%
-    as.matrix() %>%
-    t()
-  dimnames(geno) = list(variants = pos, samples = samples)
+    as.matrix()
+  dimnames(geno) = list(samples = samples, variants = pos)
 
   # remove loci with the same genotype across all samples
-  sds = apply(geno, 1, sd, na.rm = T)
-  geno[sds > 0,]
+  sds = apply(geno, 2, sd, na.rm = T)
+  geno[,sds > 0]
 }
 
 load_counts = function(pop = 'CEU') {
@@ -101,13 +100,13 @@ calculate_gene_stats = function(counts) {
 
 simulate_data = function(count_stats, genotypes, nsamples = 1000, ngenes = 100, nvars = 50, nhits = 10, rate = 4) {
   # fetch genotypes
-  X = genotypes[sample(1:nrow(genotypes), nvars), sample(1:ncol(genotypes), nsamples)]
-  X = X[apply(X, 1, sd, na.rm = T) > 0,]
-  dimnames(X) = list(variants = str_c('V', 1:nrow(X)), samples = str_c('S', 1:ncol(X)))
+  X = genotypes[sample(1:nrow(genotypes), nsamples), sample(1:ncol(genotypes), nvars)]
+  X = X[,apply(X, 2, sd, na.rm = T) > 0]
+  dimnames(X) = list(samples = str_c('S', 1:nrow(X)), variants = str_c('V', 1:ncol(X)))
 
   # simulate matrix of coefficients
-  B = matrix(0, nrow = ngenes, ncol = nrow(X), dimnames = list(genes = str_c('G', 1:ngenes),
-                                                               variants = str_c('V', 1:nrow(X))))
+  B = matrix(0, nrow = ngenes, ncol = ncol(X), dimnames = list(genes = str_c('G', 1:ngenes),
+                                                               variants = str_c('V', 1:ncol(X))))
   hits = c(1 + rexp(0.5 * nhits, rate = rate), -1 - rexp(0.5 * nhits, rate = rate))
   B[sample(length(B), length(hits))] = hits
 
@@ -116,8 +115,8 @@ simulate_data = function(count_stats, genotypes, nsamples = 1000, ngenes = 100, 
   # df = count_stats[sample(1:nrow(count_stats), ngenes),]
   df = count_stats[order(count_stats[,'MEAN'], decreasing = T),][1:ngenes,]
 
-  X0 = t(scale(t(X), center = T, scale = T))
-  m = sweep(exp(B %*% X0), 1, df[,'MEAN'], '*')
+  X0 = scale(X, center = T, scale = T)
+  m = sweep(exp(B %*% t(X0)), 1, df[,'MEAN'], '*')
   alpha = 1 / df[,'PHI']
   Z = matrix(rnbinom(length(m), mu = m, size = alpha), nrow = nrow(m))
   dimnames(Z) = list(genes = str_c('G', 1:nrow(Z)), samples = str_c('S', 1:ncol(Z)))
@@ -127,9 +126,9 @@ simulate_data = function(count_stats, genotypes, nsamples = 1000, ngenes = 100, 
 }
 
 fit_model = function(data, model, fcts = calculate_norm_factors(data$Z), ...) {
-  Z_tilde = sweep(data$Z, 2, fcts, '/')                   # normalise count data
-  Y = log(Z_tilde + 1)                                    # transform normalised count data
-  X0 = t(scale(t(data$X), center = T, scale = T))         # standardise genotypes
+  Z_tilde = sweep(data$Z, 2, fcts, '/')             # normalise count data
+  Y = log(Z_tilde + 1)                              # transform normalised count data
+  X0 = scale(data$X, center = T, scale = T)         # standardise genotypes
 
   # MAP estimation
   fit = rstan::optimizing(object = model,
@@ -140,17 +139,17 @@ fit_model = function(data, model, fcts = calculate_norm_factors(data$Z), ...) {
                                       s = colSums(data$Z),
                                       N = nrow(Y),
                                       M = ncol(Y),
-                                      K = nrow(X0)),
+                                      K = ncol(X0)),
                           seed = 42,
                           ...)
 
   # extract estimated matrix of regression coefficients B in vector format
-  data_frame(EST =
-               fit %>%
-               pluck('par') %>%
-               enframe() %>%
-               filter(str_detect(name, '^B\\[')) %>%
-               pull(value),
-             TRU = as.vector(data$B),
-             IDX = 1:length(TRU))
+  tibble(EST =
+           fit %>%
+           pluck('par') %>%
+           enframe() %>%
+           filter(str_detect(name, '^B\\[')) %>%
+           pull(value),
+         TRU = as.vector(data$B),
+         IDX = 1:length(TRU))
 }

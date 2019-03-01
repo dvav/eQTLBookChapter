@@ -2,7 +2,6 @@ library(tidyverse)
 
 plot_genotypes = function(geno) {
   geno %>%
-    t() %>%
     cor() %>%
     reshape2::melt() %>%
     ggplot() +
@@ -50,16 +49,18 @@ plot_mean_variance = function(counts, stats) {
   cowplot::plot_grid(gg1, gg2, align = 'vh', labels = 'AUTO')
 }
 
-plot_fitted_models = function(df, thr = 0.1, ylim = c(-2, 2)) {
+plot_fitted_models = function(df, thr = 0.1 * max(abs(df$EST))) {
   df %>%
     mutate(TRU = na_if(TRU, 0),
            EST = if_else(abs(EST) < thr, NA_real_, EST)) %>%
     ggplot() +
+    geom_ribbon(aes(x = IDX, ymin = -thr, ymax = thr), fill = 'grey85') +
     geom_hline(yintercept = 0, linetype = 'dashed', size = 0.2) +
     geom_point(aes(x = IDX, y = TRU), color = 'red') +
-    geom_point(aes(x = IDX, y = EST), shape = 4) +
-    facet_grid(MODEL~NSAMPLES) +
-    scale_y_continuous(limits = ylim) +
+    geom_point(aes(x = IDX, y = EST), size = 0.5) +
+    facet_grid(NSAMPLES~MODEL) +
+    scale_x_continuous(expand = c(0.02, 0.02)) +
+    scale_y_continuous(expand = c(0.02, 0.02)) +
     labs(x = 'index of regression coefficients (genes x variants)',
          y = 'value of regression coefficients')
 }
