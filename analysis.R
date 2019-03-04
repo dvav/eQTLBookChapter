@@ -27,4 +27,4 @@ fitted_models =
   }, .progress = 'text', .id = 'NSAMPLES') %>%
   as_tibble()
 
-plot_fitted_models(fitted_models, thr = 0.125)
+plot_fitted_models(fitted_models)
